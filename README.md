@@ -53,6 +53,7 @@ Buy here: [Aliexpress.com](https://haus-auto.com/p/ali/UlanziTC001), here: [Amaz
 ### **WORK IN PROGRESS**
 
 * (@GermanBluefox) Added the message "help": a description of all messages for AI agents (e.g. pi-agent), and common.supportedMessages.help
+* (@GermanBluefox) Added the standard commands of the shared catalog: screen.getScreens, screen.show (a text as a notification), screen.hide
 
 ### 4.0.2 (2026-09-24)
 

@@ -3,6 +3,7 @@ import type { AxiosResponse } from 'axios';
 
 import { rgb565to888Str } from './lib/color-convert';
 import { COMMANDS, HELP } from './lib/help';
+import { SCREEN_KINDS, errorText, matchScreen, showApp, type Screen } from './lib/screen';
 
 import { AwtrixApi } from './lib/api';
 import type { AppType as AppTypeAbstract } from './lib/app-type/abstract';
@@ -448,6 +449,12 @@ export class AwtrixLight extends utils.Adapter {
             return;
         }
 
+        if (obj.command === 'getScreens' || obj.command === 'show' || obj.command === 'hide') {
+            // The family "screen" of the shared catalog of ioBroker.assistant (lib/screen.ts)
+            void this.onScreenMessage(obj);
+            return;
+        }
+
         if (obj && obj.message) {
             if (obj.command === 'getBackgroundEffects') {
                 this.sendTo(
@@ -568,6 +575,61 @@ export class AwtrixLight extends utils.Adapter {
             }
         } else if (obj.callback) {
             this.sendTo(obj.from, obj.command, { error: 'Invalid message' }, obj.callback);
+        }
+    }
+
+    /**
+     * getScreens, show and hide of the shared catalog: one instance is one clock, show {kind: 'text'} is a notification.
+     *
+     * @param obj the message
+     */
+    private async onScreenMessage(obj: ioBroker.Message): Promise<void> {
+        const reply = (answer: Record<string, unknown>): void => {
+            if (obj.callback) {
+                this.sendTo(obj.from, obj.command, answer, obj.callback);
+            }
+        };
+        const message: Record<string, any> =
+            obj.message && typeof obj.message === 'object' && !Array.isArray(obj.message) ? obj.message : {};
+        const uid = await this.getStateAsync('meta.uid').catch(() => null);
+        const screen: Screen = {
+            id: this.namespace,
+            name: typeof uid?.val === 'string' && uid.val ? uid.val : this.namespace,
+            online: !!this.apiClient?.isConnected(),
+            kinds: [...SCREEN_KINDS],
+        };
+
+        if (obj.command === 'getScreens') {
+            reply({ screens: [screen] });
+            return;
+        }
+
+        let request: [string, AwtrixApi.App | undefined];
+        if (obj.command === 'show') {
+            const { app, error } = showApp(message, screen);
+            if (error) {
+                reply(error);
+                return;
+            }
+            request = ['notify', app];
+        } else {
+            const error = matchScreen(message, screen);
+            if (error) {
+                reply(error);
+                return;
+            }
+            request = ['notify/dismiss', undefined];
+        }
+
+        if (!this.apiClient || !this.apiClient.isConnected()) {
+            reply({ error: 'API is not connected (device offline ?)', reason: 'NOT_CONNECTED' });
+            return;
+        }
+        try {
+            await this.apiClient.requestAsync(request[0], 'POST', request[1]);
+            reply(obj.command === 'show' ? { ok: true, screens: [screen.name] } : { ok: true });
+        } catch (error) {
+            reply({ error: errorText(error) });
         }
     }
 

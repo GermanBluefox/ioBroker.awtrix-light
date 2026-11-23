@@ -34,6 +34,7 @@ module.exports = __toCommonJS(awtrix_light_exports);
 var utils = __toESM(require("@iobroker/adapter-core"));
 var import_color_convert = require("./lib/color-convert");
 var import_help = require("./lib/help");
+var import_screen = require("./lib/screen");
 var import_api = require("./lib/api");
 var import_native = require("./lib/app-type/native");
 var import_user = require("./lib/app-type/user");
@@ -350,6 +351,10 @@ class AwtrixLight extends utils.Adapter {
       }
       return;
     }
+    if (obj.command === "getScreens" || obj.command === "show" || obj.command === "hide") {
+      void this.onScreenMessage(obj);
+      return;
+    }
     if (obj && obj.message) {
       if (obj.command === "getBackgroundEffects") {
         this.sendTo(
@@ -442,6 +447,57 @@ class AwtrixLight extends utils.Adapter {
       }
     } else if (obj.callback) {
       this.sendTo(obj.from, obj.command, { error: "Invalid message" }, obj.callback);
+    }
+  }
+  /**
+   * getScreens, show and hide of the shared catalog: one instance is one clock, show {kind: 'text'} is a notification.
+   *
+   * @param obj the message
+   */
+  async onScreenMessage(obj) {
+    var _a;
+    const reply = (answer) => {
+      if (obj.callback) {
+        this.sendTo(obj.from, obj.command, answer, obj.callback);
+      }
+    };
+    const message = obj.message && typeof obj.message === "object" && !Array.isArray(obj.message) ? obj.message : {};
+    const uid = await this.getStateAsync("meta.uid").catch(() => null);
+    const screen = {
+      id: this.namespace,
+      name: typeof (uid == null ? void 0 : uid.val) === "string" && uid.val ? uid.val : this.namespace,
+      online: !!((_a = this.apiClient) == null ? void 0 : _a.isConnected()),
+      kinds: [...import_screen.SCREEN_KINDS]
+    };
+    if (obj.command === "getScreens") {
+      reply({ screens: [screen] });
+      return;
+    }
+    let request;
+    if (obj.command === "show") {
+      const { app, error } = (0, import_screen.showApp)(message, screen);
+      if (error) {
+        reply(error);
+        return;
+      }
+      request = ["notify", app];
+    } else {
+      const error = (0, import_screen.matchScreen)(message, screen);
+      if (error) {
+        reply(error);
+        return;
+      }
+      request = ["notify/dismiss", void 0];
+    }
+    if (!this.apiClient || !this.apiClient.isConnected()) {
+      reply({ error: "API is not connected (device offline ?)", reason: "NOT_CONNECTED" });
+      return;
+    }
+    try {
+      await this.apiClient.requestAsync(request[0], "POST", request[1]);
+      reply(obj.command === "show" ? { ok: true, screens: [screen.name] } : { ok: true });
+    } catch (error) {
+      reply({ error: (0, import_screen.errorText)(error) });
     }
   }
   async setApiConnected(connection) {

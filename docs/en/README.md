@@ -134,6 +134,16 @@ sendTo('awtrix-light.0', 'rtttl', 'Beep: d=32,o=7,b=120: a,P,c#', (res) => {
 
 `sendTo('awtrix-light.0', 'help', {})` answers `{ help, commands }`: a description of all messages and of the states for AI agents (e.g. pi-agent) and script authors, and the list of all commands with `write` (`true` if the command has an effect on the device).
 
+`getScreens`, `show` and `hide` are the commands `screen.getScreens`, `screen.show` and `screen.hide` of the shared catalog of ioBroker.assistant, so an agent can treat the clock like any other screen:
+
+```javascript
+sendTo('awtrix-light.0', 'show', { kind: 'text', text: 'Washing machine done', severity: 'warning', seconds: 10 }, (res) => {
+    console.log(res); // { ok: true, screens: ['awtrix_...'] } or { error, reason }
+});
+```
+
+Only the kind `text` is supported (other kinds answer `reason: 'NOT_SUPPORTED'`). `seconds: 0` holds the text until `hide`, `severity` `warning` / `alert` colors the text yellow / red (an alert also switches the display on), `title` is put in front of the text, and all options of `notification` pass on.
+
 ## Apps
 
 **App names must be lowercase (a-z) and unique. No numbers, no capital letters, no special characters, no whitespaces.**

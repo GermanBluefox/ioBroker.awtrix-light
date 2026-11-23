@@ -4,14 +4,20 @@
  * Keep it in sync with `onMessage` in awtrix-light.ts.
  */
 
-/** The commands `onMessage` answers. write: true if the command has an effect on the device */
-export const COMMANDS: { command: string; write: boolean }[] = [
+/**
+ * The commands `onMessage` answers. write: true if the command has an effect on the device; standard: the command of
+ * the shared catalog of ioBroker.assistant (its HELP.md) that the command follows
+ */
+export const COMMANDS: { command: string; write: boolean; standard?: string }[] = [
     { command: 'help', write: false },
     { command: 'notification', write: true },
     { command: 'sound', write: true },
     { command: 'rtttl', write: true },
     { command: 'sendNotification', write: true },
     { command: 'getBackgroundEffects', write: false },
+    { command: 'getScreens', write: false, standard: 'screen.getScreens' },
+    { command: 'show', write: true, standard: 'screen.show' },
+    { command: 'hide', write: true, standard: 'screen.hide' },
 ];
 
 export const HELP = `ioBroker.awtrix-light: controls an Awtrix 3 pixel clock (e.g. Ulanzi TC001, 32 x 8 pixels) over HTTP, one instance
@@ -35,6 +41,16 @@ Commands (sendTo awtrix-light.0); answer {error: null, data} (data = the answer 
 - sendNotification: the notification-manager passes on ioBroker notifications, their messages are shown as a
   notification: {error, sent}.
 - getBackgroundEffects {}: the names of the effects [{value, label}], made for the settings.
+- getScreens, show, hide: the commands screen.getScreens, screen.show and screen.hide of the shared catalog of
+  ioBroker.assistant, with its answers ({ok, ...} or {error, reason}) instead of {error: null, data}:
+  - getScreens {}: this clock: {screens: [{id: "awtrix-light.0", name (the uid of the device), online, kinds:
+    ["text"]}]}.
+  - show {kind: "text", text, title?, icon?, severity?, seconds?, screen?, ...options of notification}: shows the
+    text as a notification: {ok, screens: [name]}. title is put in front of the text. severity info, warning
+    (yellow text) or alert (red text, switches the display on), unless color is given. seconds: how long, 0 =
+    until hide (hold). Other kinds: reason NOT_SUPPORTED; offline: NOT_CONNECTED; screen of another clock:
+    NOT_FOUND; room alone: NOT_SUPPORTED (the clock has no room).
+  - hide {}: removes a held notification (as notification.dismiss): {ok}.
 A message of the wrong type answers {error: "Incomplete message"}, one without message {error: "Invalid message"}.
 
 States (awtrix-light.0.*), written with ack false:
@@ -49,7 +65,8 @@ States (awtrix-light.0.*), written with ack false:
 How to talk to the user:
 - Each device is an instance (awtrix-light.0, awtrix-light.1 ...). If there are several and the user names none,
   ask which one; do not guess.
-- Show notifications and play sounds only on the user's request; sounds at night (about 22:00 to 07:00) and a high
-  volume only when the user asks for it explicitly. Use hold only when the text has to stay.
+- Show notifications (notification, show) and play sounds only on the user's request; sounds at night (about 22:00
+  to 07:00) and a high volume only when the user asks for it explicitly. Use hold (show: seconds 0) only when the
+  text has to stay.
 - Keep texts short: longer texts scroll.
 - device.reboot, device.update, device.sleep and the settings change the device: only on the user's request.`;
